@@ -1,17 +1,16 @@
+import logging
 from dataclasses import dataclass
 from enum import auto
-from typing import Union, List
+from typing import Union, List, Optional
 
 from cursor import Cursor
-import logging
-
 from utils import BaseEnum
 
 LOGGER = logging.getLogger(__name__)
 
 
 class TerminalCharacter(BaseEnum):
-    SPACE = ' ',
+    SPACE = ' '
     DOUBLE_QUOTE = '"'
     PERCENT = '%'
     AMPERSAND = '&'
@@ -53,10 +52,11 @@ class Operators(BaseEnum):
     NOT_EQUAL = "!="
     EQUAL = "=="
     ASSIGN = "="
+    LEFT_PAREN = "("
+    RIGHT_PAREN = ")"
 
     def __repr__(self):
         return self.value
-        return f"{self.name}({self.value})"
 
 
 class Keywords(BaseEnum):
@@ -98,7 +98,7 @@ class Token:
         return f"`{self.value.__repr__()}` : {self.type.__repr__()}"
 
 
-def get_token(cur: Cursor[str]) -> Token:
+def get_token(cur: Cursor[str]) -> Optional[Token]:
     match cur.peek():
         case TerminalCharacter.PLUS:
             cur.next()
@@ -106,6 +106,12 @@ def get_token(cur: Cursor[str]) -> Token:
         case TerminalCharacter.MINUS:
             cur.next()
             return Token.create(Operators.MINUS)
+        case TerminalCharacter.ASTERISK:
+            cur.next()
+            return Token.create(Operators.MULTIPLY)
+        case TerminalCharacter.SOLIDUS:
+            cur.next()
+            return Token.create(Operators.DIVIDE)
         case TerminalCharacter.LESS_THAN:
             cur.next()
             op = Operators.LESS_OR_EQUAL if cur.advance_if(TerminalCharacter.EQUALS.value) else Operators.LESS
@@ -118,25 +124,34 @@ def get_token(cur: Cursor[str]) -> Token:
             cur.next()
             op = Operators.EQUAL if cur.advance_if(TerminalCharacter.EQUALS.value) else Operators.ASSIGN
             return Token.create(op)
+        case TerminalCharacter.LEFT_PAREN:
+            cur.next()
+            return Token.create(Operators.LEFT_PAREN)
+        case TerminalCharacter.RIGHT_PAREN:
+            cur.next()
+            return Token.create(Operators.RIGHT_PAREN)
         case c if c.isdigit():
             return Token.create(scan_number(cur))
         case c if c.isalpha():
             text = scan_alpha_numeric(cur)
-
             if text.upper() in Keywords:
                 return Token.create(Keywords(text.upper()))
-            return Token.create(bool(text))
+            return Token.create(cast_boolean(text))
+        case TerminalCharacter.SPACE:
+            cur.next()
+            return None
         case c:
             raise ValueError(f"Unknown token: `{c}`")
 
 
 def scan_number(cur: Cursor[str]) -> Union[int, float]:
     num = ''
-    is_digit = lambda: cur.peek().isdigit()
-    is_point = lambda: cur.peek() == TerminalCharacter.PERIOD
+
+    is_digit = lambda: c.isdigit() if (c := cur.peek()) else False
+    is_point = lambda: c == TerminalCharacter.PERIOD if (c := cur.peek()) else False
 
     is_float = False
-    while has_point := is_point() or is_digit():
+    while (has_point := is_point()) or is_digit():
         is_float |= has_point
         num += cur.advance()
 
@@ -151,6 +166,17 @@ def scan_alpha_numeric(cur: Cursor[str]) -> str:
     return text
 
 
+def cast_boolean(raw_bool: str) -> bool:
+    normalized_raw = raw_bool.lower()
+    booleans = {
+        "true": True,
+        "false": False
+    }
+    if normalized_raw not in booleans:
+        raise ValueError(f"Invalid boolean value: {raw_bool}")
+    return booleans[normalized_raw]
+
+
 def scan(text: str) -> List[Token]:
     LOGGER.debug("Input: `{}`".format(text))
 
@@ -160,7 +186,6 @@ def scan(text: str) -> List[Token]:
     while cur.has_any:
         if t := get_token(cur):
             tokens.append(t)
-        cur.next()
 
     LOGGER.debug("Tokens: {}".format(tokens))
 

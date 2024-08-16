@@ -41,11 +41,6 @@ class Cursor[T]:
     def next(self) -> None:
         self.current += 1
 
-    def check(self, value: T) -> bool:
-        if not self.has_any:
-            return False
-        return self.peek() == value
-
     @property
     def has_any(self) -> bool:
         return self.current < self.total
