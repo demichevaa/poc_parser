@@ -98,7 +98,7 @@ class ScannerTestCase(unittest.TestCase):
 
 
 class ParserTestCase(unittest.TestCase):
-    def test_parse(self):
+    def test_parse_simple_comparison(self):
         tokens = scan("True == False")
 
         ast_head = parse(tokens)
@@ -118,6 +118,24 @@ class ParserTestCase(unittest.TestCase):
         self.assertEqual(parent_token, EQUAL_TOKEN)
         self.assertEqual(left_token, TRUE_TOKEN)
         self.assertEqual(right_token, FALSE_TOKEN)
+
+    def test_parse_simple_paren_comparison(self):
+        tokens = scan("(True) == False")
+
+        ast_head = parse(tokens)
+        display(ast_head)
+
+    def test_parse_no_closing_paren(self):
+        tokens = scan("(True == False")
+
+        with self.assertRaises(ValueError):
+            parse(tokens)
+
+    def test_parse_comparison_with_paren(self):
+        tokens = scan("((True) == (False))")
+
+        ast_head = parse(tokens)
+        display(ast_head)
 
 
 if __name__ == '__main__':

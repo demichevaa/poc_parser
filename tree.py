@@ -33,6 +33,9 @@ class TreeNode[T]:
 # │   └── b
 # └── c
 def display(node: TreeNode, indent="", is_last=True):
+    if node is None:
+        return
+
     line_start = "└── " if is_last else "├── "
 
     print(indent + line_start + str(node))

@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from enum import auto
+from functools import lru_cache
 from typing import Union, List, Optional
 
 from cursor import Cursor
@@ -72,7 +73,7 @@ class TokenType(BaseEnum):
 @dataclass
 class Token:
     type: TokenType
-    value: Union[Operators, Keywords, int, float]
+    value: Union[Operators, Keywords, int, float, bool]
 
     @staticmethod
     def from_operator(value):
@@ -83,6 +84,7 @@ class Token:
         return Token(TokenType.LITERAL, value)
 
     @staticmethod
+    @lru_cache(maxsize=None)
     def create(value) -> 'Token':
         if isinstance(value, Operators):
             return Token.from_operator(value)
@@ -160,7 +162,11 @@ def scan_number(cur: Cursor[str]) -> Union[int, float]:
 
 def scan_alpha_numeric(cur: Cursor[str]) -> str:
     text = ''
-    while (c := cur.peek()) and c != TerminalCharacter.SPACE:
+
+    is_letter = lambda: (65 <= ord(c) <= 90) or (97 <= ord(c) <= 122) \
+        if (c := cur.peek()) else False
+
+    while is_letter():
         text += cur.advance()
 
     return text
@@ -190,3 +196,7 @@ def scan(text: str) -> List[Token]:
     LOGGER.debug("Tokens: {}".format(tokens))
 
     return tokens
+
+
+def is_paren(token: Token) -> bool:
+    token.type == TokenType.OPERATOR and token.value.value == Operators.LEFT_PAREN

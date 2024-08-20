@@ -1,13 +1,22 @@
-from typing import Optional, Sequence, TypeVar
+from typing import Optional, Sequence, TypeVar, Callable
+
+from utils import Str
 
 T = TypeVar('T')
 
 
 class Cursor[T]:
-    def __init__(self, seq: Sequence[T]):
+    def __init__(
+            self,
+            seq: Sequence[T],
+            compare: Optional[Callable[[T], bool]] = None
+    ):
         self.current = 0
         self.total = len(seq)
         self.seq = seq
+
+        default_compare = lambda a, b: a == b
+        self._compare = compare or default_compare
 
     def peek(self) -> Optional[T]:
         if not self.has_any:
@@ -30,8 +39,8 @@ class Cursor[T]:
         self.next()
         return c
 
-    def advance_if(self, expected_char: str) -> Optional[T]:
-        if self.peek() == expected_char:
+    def advance_if(self, expected_item: T) -> Optional[T]:
+        if self.peek() == expected_item:
             return self.advance()
         return None
 
@@ -40,6 +49,12 @@ class Cursor[T]:
 
     def next(self) -> None:
         self.current += 1
+
+    def consume(self, expected_item: T, error_message: Optional[str] = None) -> None:
+        item = self.advance_if(expected_item)
+        if not item:
+            raise ValueError(f"{expected_item} not found: {error_message}")
+        return item
 
     @property
     def has_any(self) -> bool:
